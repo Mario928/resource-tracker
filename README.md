@@ -6,7 +6,7 @@ Resource Tracker is a comprehensive system designed to monitor, track, and manag
 
 ## Key Features
 
-- **Resource Tracking**: Monitors various OpenStack resources including servers, networks, subnets, routers, floating IPs, and GPU leases
+- **Resource Tracking**: Monitors various OpenStack resources including servers, networks, subnets, routers, floating IPs, GPU leases, block volumes, and object storage buckets
 - **Multi-Site Support**: Works across different Chameleon project sites (KVM@TACC, CHI@TACC, CHI@UC)
 - **Resource History**: Maintains historical data of resources, including creation time, status changes, and deletion
 - **Resource Search**: Easily search for resources by name across all resource types
@@ -25,12 +25,14 @@ The Resource Tracker consists of three main Python scripts:
 ### Using Docker (Recommended)
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/ShaktidharK1997/resource-tracker.git
    cd resource-tracker
    ```
 
 2. Configure environment variables in the `.env` file:
+
    ```
    # Database configuration
    DB_NAME=resource_tracker
@@ -51,6 +53,7 @@ The Resource Tracker consists of three main Python scripts:
    ```
 
 3. Start the services using Docker Compose:
+
    ```bash
    docker-compose up -d
    ```
@@ -58,12 +61,14 @@ The Resource Tracker consists of three main Python scripts:
 ### Manual Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/ShaktidharK1997/resource-tracker.git
    cd resource-tracker
    ```
 
 2. Install required Python packages:
+
    ```bash
    pip install -r requirements.txt
    ```
@@ -95,6 +100,7 @@ python resource_search.py <query_string> [--site SITE]
 ```
 
 Examples:
+
 ```bash
 # Search for all resources with "test" in their name
 python resource_search.py "test"
@@ -115,6 +121,7 @@ python resource_cleanup.py <hours> [--dry-run] [--resource-type TYPE] [--site SI
 ```
 
 Examples:
+
 ```bash
 # Preview resources older than 24 hours (dry run)
 python resource_cleanup.py 24 --dry-run
