@@ -108,6 +108,21 @@ class ResourceTracker:
                 'floating_ips': list(os_conn.network.ips()) if os_conn else [],
                 'leases': blazar_conn.lease.list() if blazar_conn else []
             }
+
+            # Fetch volumes, handling potential missing endpoint errors
+            try:
+                resources['volumes'] = list(os_conn.block_storage.volumes()) if os_conn else []
+            except Exception as e:
+                logger.warning(f"Could not fetch volumes for {project_site}: {str(e)}")
+                resources['volumes'] = []
+
+            # Fetch buckets, handling potential missing endpoint errors
+            try:
+                resources['buckets'] = list(os_conn.object_store.containers()) if os_conn else []
+            except Exception as e:
+                logger.warning(f"Could not fetch buckets for {project_site}: {str(e)}")
+                resources['buckets'] = []
+
             return resources
         except Exception as e:
             logger.error(f"Error fetching resources for {project_site}: {str(e)}")
@@ -582,6 +597,132 @@ class ResourceTracker:
         except Exception as e:
             logger.error(f"Error updating GPU lease reservations: {str(e)}")
             raise
+
+    def update_volumes(self, conn, volumes: List[Any], current_time: datetime, project_site: str):
+        """Update volume records in the database"""
+        try:
+            with conn.cursor() as cur:
+                # Get existing volume IDs
+                cur.execute("SELECT resource_id FROM volumes WHERE project_site = %s", (project_site,))
+                existing_ids = {row[0] for row in cur.fetchall()}
+                
+                # Process each volume
+                current_ids = set()
+                for vol in volumes:
+                    current_ids.add(vol.id)
+                    
+                    # Prepare volume data
+                    vol_data = {
+                        'resource_id': vol.id,
+                        'resource_name': vol.name or vol.id,
+                        'size': vol.size,
+                        'status': vol.status,
+                        'created_time': vol.created_at,
+                        'updated_time': vol.updated_at,
+                        'last_seen_time': current_time,
+                        'volume_type': vol.volume_type,
+                        'attachments': Json(vol.attachments),
+                        'project_site': project_site
+                    }
+                    
+                    if vol.id in existing_ids:
+                        # Update existing volume
+                        cur.execute("""
+                            UPDATE volumes 
+                            SET resource_name = %(resource_name)s,
+                                size = %(size)s,
+                                status = %(status)s,
+                                updated_time = %(updated_time)s,
+                                last_seen_time = %(last_seen_time)s,
+                                volume_type = %(volume_type)s,
+                                attachments = %(attachments)s
+                            WHERE resource_id = %(resource_id)s
+                        """, vol_data)
+                    else:
+                        # Insert new volume
+                        cur.execute("""
+                            INSERT INTO volumes (
+                                resource_id, resource_name, size, status, created_time,
+                                updated_time, last_seen_time, volume_type, attachments, project_site
+                            ) VALUES (
+                                %(resource_id)s, %(resource_name)s, %(size)s, %(status)s, %(created_time)s,
+                                %(updated_time)s, %(last_seen_time)s, %(volume_type)s, %(attachments)s, %(project_site)s
+                            )
+                        """, vol_data)
+                
+                # Update first_time_not_seen for volumes that no longer exist
+                missing_ids = existing_ids - current_ids
+                if missing_ids:
+                    cur.execute("""
+                        UPDATE volumes 
+                        SET first_time_not_seen = %s,
+                        user_deleted = TRUE
+                        WHERE resource_id = ANY(%s)
+                        AND first_time_not_seen IS NULL
+                    """, (current_time, list(missing_ids)))
+                    
+        except Exception as e:
+            logger.error(f"Error updating volumes: {str(e)}")
+            raise
+
+    def update_buckets(self, conn, buckets: List[Any], current_time: datetime, project_site: str):
+        """Update bucket records in the database"""
+        try:
+            with conn.cursor() as cur:
+                # Get existing bucket names for this site
+                cur.execute("SELECT resource_name FROM buckets WHERE project_site = %s", (project_site,))
+                existing_names = {row[0] for row in cur.fetchall()}
+                
+                # Process each bucket
+                current_names = set()
+                for bucket in buckets:
+                    current_names.add(bucket.name)
+                    
+                    # Prepare bucket data
+                    # SDK container object usually has 'object_count' and 'bytes'
+                    bucket_data = {
+                        'resource_name': bucket.name,
+                        'count': getattr(bucket, 'object_count', 0),
+                        'bytes': getattr(bucket, 'bytes', 0),
+                        'last_seen_time': current_time,
+                        'project_site': project_site,
+                        'created_time': None # Often not available in basic listing
+                    }
+                    
+                    if bucket.name in existing_names:
+                        # Update existing bucket
+                        cur.execute("""
+                            UPDATE buckets 
+                            SET count = %(count)s,
+                                bytes = %(bytes)s,
+                                last_seen_time = %(last_seen_time)s
+                            WHERE resource_name = %(resource_name)s AND project_site = %(project_site)s
+                        """, bucket_data)
+                    else:
+                        # Insert new bucket
+                        cur.execute("""
+                            INSERT INTO buckets (
+                                resource_name, count, bytes, last_seen_time, project_site, created_time
+                            ) VALUES (
+                                %(resource_name)s, %(count)s, %(bytes)s, %(last_seen_time)s, %(project_site)s, %(created_time)s
+                            )
+                        """, bucket_data)
+                
+                # Update first_time_not_seen for buckets that no longer exist
+                missing_names = existing_names - current_names
+                if missing_names:
+                    cur.execute("""
+                        UPDATE buckets 
+                        SET first_time_not_seen = %s,
+                        user_deleted = TRUE
+                        WHERE resource_name = ANY(%s)
+                        AND project_site = %s
+                        AND first_time_not_seen IS NULL
+                    """, (current_time, list(missing_names), project_site))
+                    
+        except Exception as e:
+            logger.error(f"Error updating buckets: {str(e)}")
+            raise
     
     def update_resources(self):
         """Main method to update all resources across all project sites"""
@@ -603,6 +744,8 @@ class ResourceTracker:
                     self.update_routers(conn, resources['routers'], current_time, project_site)
                     self.update_subnets(conn, resources['subnets'], current_time, project_site)
                     self.update_floating_ips(conn, resources['floating_ips'], current_time, project_site)
+                    self.update_volumes(conn, resources['volumes'], current_time, project_site)
+                    self.update_buckets(conn, resources['buckets'], current_time, project_site)
                     
                     # Update Blazar leases if available for this site
                     if project_site in self.blazar_connections:
