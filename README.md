@@ -27,7 +27,7 @@ The Resource Tracker consists of three main Python scripts:
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/ShaktidharK1997/resource-tracker.git
+   git clone https://github.com/Mario928/resource-tracker.git
    cd resource-tracker
    ```
 
