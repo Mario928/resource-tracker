@@ -141,7 +141,8 @@ python resource_cleanup.py 72 --site "kvm@tacc"
 Resource Tracker is specifically designed for Chameleon Cloud environments. It handles the unique aspects of Chameleon's implementation of OpenStack, including:
 
 - Multi-site management (KVM@TACC, CHI@TACC, CHI@UC)
-- GPU lease tracking via Blazar
+- GPU lease and VM reservation tracking via Blazar
+- Block storage (volumes) and object storage (buckets) tracking
 - Protection of essential infrastructure resources
 
 ## Project Structure
@@ -151,6 +152,7 @@ resource-tracker/
 ├── resource_tracker.py     # Core tracking service
 ├── resource_search.py      # Resource search utility
 ├── resource_cleanup.py     # Resource cleanup tool
+├── init-scripts/           # SQL migrations for database tables
 ├── scripts/
 │   └── install_cron.sh     # Script to install cron job
 ├── docker-compose.yml      # Docker Compose configuration
