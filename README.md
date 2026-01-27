@@ -46,10 +46,11 @@ The Resource Tracker consists of three main Python scripts:
    OS_APPLICATION_CREDENTIAL_ID=your_credential_id1,your_credential_id2,your_credential_id3
    OS_APPLICATION_CREDENTIAL_SECRET=your_secret1,your_secret2,your_secret3
 
-   # Blazar credentials (for GPU lease tracking)
-   BLAZAR_AUTH_URL=https://chi.tacc.chameleoncloud.org:5000/v3,https://chi.uc.chameleoncloud.org:5000/v3
-   BLAZAR_APPLICATION_CREDENTIAL_ID=your_blazar_credential_id1,your_blazar_credential_id2
-   BLAZAR_APPLICATION_CREDENTIAL_SECRET=your_blazar_secret1,your_blazar_secret2
+   # Blazar credentials (for GPU leases and VM reservations)
+   # Note: Blazar credentials often use the same application credential as OpenStack
+   BLAZAR_AUTH_URL=https://chi.tacc.chameleoncloud.org:5000/v3,https://kvm.tacc.chameleoncloud.org:5000/v3,https://chi.uc.chameleoncloud.org:5000/v3
+   BLAZAR_APPLICATION_CREDENTIAL_ID=your_credential_id1,your_credential_id2,your_credential_id3
+   BLAZAR_APPLICATION_CREDENTIAL_SECRET=your_secret1,your_secret2,your_secret3
    ```
 
 3. Start the services using Docker Compose:
