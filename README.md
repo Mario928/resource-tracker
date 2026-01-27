@@ -42,6 +42,7 @@ The Resource Tracker consists of three main Python scripts:
    DB_PORT=5432
 
    # OpenStack credentials
+   # Sites order: chi@tacc, kvm@tacc, chi@uc (credentials at each position apply to corresponding site)
    OS_AUTH_URL=https://chi.tacc.chameleoncloud.org:5000/v3,https://kvm.tacc.chameleoncloud.org:5000/v3,https://chi.uc.chameleoncloud.org:5000/v3
    OS_APPLICATION_CREDENTIAL_ID=your_credential_id1,your_credential_id2,your_credential_id3
    OS_APPLICATION_CREDENTIAL_SECRET=your_secret1,your_secret2,your_secret3
