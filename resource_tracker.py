@@ -220,7 +220,7 @@ class ResourceTracker:
                         'last_seen_time': current_time,
                         'flavor': server.flavor.get('id') if server.flavor else None,
                         'image': server.image.get('id') if server.image else None,
-                        'security_groups': [sg.get('name') for sg in server.security_groups],
+                        'security_groups': [sg.get('name') for sg in (server.security_groups or [])],
                         'addresses': Json(server.addresses),
                         'project_site': project_site
                     }
