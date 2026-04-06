@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS volumes (
 
 -- Buckets (Containers) table
 CREATE TABLE IF NOT EXISTS buckets (
-    resource_name VARCHAR PRIMARY KEY,
+    resource_name VARCHAR NOT NULL,
     count INTEGER,
     bytes BIGINT,
     last_seen_time TIMESTAMP NOT NULL,
@@ -25,5 +25,6 @@ CREATE TABLE IF NOT EXISTS buckets (
     project_site project_site NOT NULL,
     user_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     system_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_time TIMESTAMP -- May be null if not returned by API
+    created_time TIMESTAMP, -- May be null if not returned by API
+    PRIMARY KEY (resource_name, project_site)
 );
