@@ -727,43 +727,55 @@ class ResourceTracker:
     def update_resources(self):
         """Main method to update all resources across all project sites"""
         current_time = datetime.now()
-        
-        try:
+
+        for project_site in self.os_connections.keys():
+            logger.info(f"Updating resources for project site: {project_site}")
+
+            try:
+                resources = self.fetch_current_resources(project_site)
+            except Exception as e:
+                logger.error(f"Error fetching resources for {project_site}: {str(e)}")
+                continue
+
             conn = self.get_db_connection()
             conn.autocommit = False
-            
             try:
-                # Update resources for each project site
-                for project_site in self.os_connections.keys():
-                    logger.info(f"Updating resources for project site: {project_site}")
-                    resources = self.fetch_current_resources(project_site)
-                    
-                    # Update each resource type with project_site
-                    self.update_servers(conn, resources['servers'], current_time, project_site)
-                    self.update_networks(conn, resources['networks'], current_time, project_site)
-                    self.update_routers(conn, resources['routers'], current_time, project_site)
-                    self.update_subnets(conn, resources['subnets'], current_time, project_site)
-                    self.update_floating_ips(conn, resources['floating_ips'], current_time, project_site)
-                    self.update_volumes(conn, resources['volumes'], current_time, project_site)
-                    self.update_buckets(conn, resources['buckets'], current_time, project_site)
-                    
-                    # Update Blazar leases if available for this site
-                    if project_site in self.blazar_connections:
+                for update_fn, resource_key in [
+                    (self.update_servers, 'servers'),
+                    (self.update_networks, 'networks'),
+                    (self.update_routers, 'routers'),
+                    (self.update_subnets, 'subnets'),
+                    (self.update_floating_ips, 'floating_ips'),
+                    (self.update_volumes, 'volumes'),
+                    (self.update_buckets, 'buckets'),
+                ]:
+                    with conn.cursor() as cur:
+                        cur.execute("SAVEPOINT sp")
+                    try:
+                        update_fn(conn, resources[resource_key], current_time, project_site)
+                    except Exception as e:
+                        with conn.cursor() as cur:
+                            cur.execute("ROLLBACK TO SAVEPOINT sp")
+                        logger.error(f"Error updating {resource_key} for {project_site}: {str(e)}")
+
+                if project_site in self.blazar_connections:
+                    with conn.cursor() as cur:
+                        cur.execute("SAVEPOINT sp")
+                    try:
                         self.update_gpu_leases(conn, resources['leases'], current_time, project_site)
-                
+                    except Exception as e:
+                        with conn.cursor() as cur:
+                            cur.execute("ROLLBACK TO SAVEPOINT sp")
+                        logger.error(f"Error updating leases for {project_site}: {str(e)}")
+
                 conn.commit()
-                logger.info("Successfully updated all resources across all project sites")
-                
+                logger.info(f"Successfully updated resources for {project_site}")
+
             except Exception as e:
                 conn.rollback()
-                logger.error(f"Error in transaction, rolling back: {str(e)}")
-                raise
+                logger.error(f"Error in transaction for {project_site}, rolling back: {str(e)}")
             finally:
                 conn.close()
-                
-        except Exception as e:
-            logger.error(f"Failed to update resources: {str(e)}")
-            raise
 
 
     def display_resources(self, resources: Dict[str, List[Dict]]):
